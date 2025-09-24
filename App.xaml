@@ -1,0 +1,13 @@
+﻿<Application x:Class="SimpleAccountBook.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+	<Application.Resources>
+		<!-- 기본적으로 라이트 테마를 불러옵니다 (시작 시 코드에서 변경됩니다) -->
+		<ResourceDictionary>
+			<ResourceDictionary.MergedDictionaries>
+				<ResourceDictionary Source="/Themes/LightTheme.xaml"/>
+			</ResourceDictionary.MergedDictionaries>
+		</ResourceDictionary>
+	</Application.Resources>
+</Application>

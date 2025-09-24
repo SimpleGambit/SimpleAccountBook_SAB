@@ -1,0 +1,61 @@
+﻿<Window x:Class="SimpleAccountBook.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="환경설정"
+        Height="240"
+        Width="380"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Border Padding="16">
+        <StackPanel>
+            <TextBlock Text="테마 설정" 
+                       FontSize="16" 
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+            
+            <TextBlock Text="애플리케이션의 밝기 테마를 선택하세요." 
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       Margin="0,8,0,0" 
+                       TextWrapping="Wrap" />
+
+            <!-- 테마 선택 라디오 버튼 -->
+            <StackPanel Orientation="Vertical" 
+                        Margin="0,16,0,0">
+                <RadioButton x:Name="LightThemeRadio"
+                             Content="라이트 모드 (밝은 테마)"
+                             GroupName="Theme"
+                             FontSize="14"
+                             Margin="0,0,0,12"
+                             Foreground="{DynamicResource PrimaryTextBrush}"
+                             Checked="ThemeRadio_Checked"/>
+                
+                <RadioButton x:Name="DarkThemeRadio"
+                             Content="다크 모드 (어두운 테마)"
+                             GroupName="Theme"
+                             FontSize="14"
+                             Foreground="{DynamicResource PrimaryTextBrush}"
+                             Checked="ThemeRadio_Checked"/>
+            </StackPanel>
+
+            <Separator Margin="0,20,0,12" 
+                       Background="{DynamicResource BorderBrush}"/>
+
+            <!-- 안내 메시지 -->
+            <TextBlock Text="테마 변경 후 창을 닫으면 자동으로 적용됩니다." 
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontSize="11"
+                       Margin="0,0,0,12" 
+                       TextWrapping="Wrap" />
+
+            <!-- 닫기 버튼 -->
+            <Button Content="닫기" 
+                    Width="80" 
+                    HorizontalAlignment="Right" 
+                    Click="CloseButton_Click"
+                    Background="{DynamicResource ButtonBackgroundBrush}"
+                    Foreground="{DynamicResource PrimaryTextBrush}"
+                    BorderBrush="{DynamicResource ButtonBorderBrush}"/>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,2081 @@
+﻿<Window x:Class="SimpleAccountBook.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:SimpleAccountBook.Converters"
+        xmlns:calendar="clr-namespace:SimpleAccountBook.Controls.Calendar"
+        xmlns:local="clr-namespace:SimpleAccountBook"
+        mc:Ignorable="d"
+        Title="간단한 가계부"
+        Icon="Assets/AppIcon.png"
+        Height="800"
+		Width="1280"
+        AllowDrop="True"
+        DragEnter="Window_DragEnter"
+        Drop="Window_Drop"
+        ResizeMode="CanMinimize"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static local:MainWindow.SaveCommand}"
+				Executed="SaveCommand_Executed"
+                CanExecute="SaveCommand_CanExecute" />
+        <CommandBinding Command="{x:Static local:MainWindow.SaveAsCommand}"
+                        Executed="SaveAsCommand_Executed"
+                        CanExecute="SaveCommand_CanExecute" />
+    </Window.CommandBindings>
+    <Window.InputBindings>
+        <KeyBinding Command="{x:Static local:MainWindow.SaveCommand}"
+			Key="S"
+            Modifiers="Control" />
+        <KeyBinding Command="{x:Static local:MainWindow.SaveAsCommand}"
+            Key="S"
+            Modifiers="Control+Shift" />
+    </Window.InputBindings>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <converters:TransactionTypeToBrushConverter x:Key="TransactionTypeToBrushConverter" />
+        <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+        <converters:AmountDifferenceValueConverter x:Key="AmountDifferenceValueConverter" />
+        <converters:AmountDifferenceVisibilityConverter x:Key="AmountDifferenceVisibilityConverter" />
+        <converters:DecimalToCurrencyStringConverter x:Key="CurrencyConverter" Suffix="원" />
+        <converters:DecimalStringConverter x:Key="DecimalStringConverter" />
+        <converters:AmountToColorConverter x:Key="AmountToColorConverter" />
+
+        <!-- ListView GridViewColumnHeader 스타일 -->
+        <Style TargetType="{x:Type GridViewColumnHeader}">
+            <Setter Property="Background" Value="{DynamicResource ListViewHeaderBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- MenuItem 스타일 -->
+        <Style TargetType="{x:Type MenuItem}">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type MenuItem}">
+                        <Border Name="Border" 
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Icon"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Shortcut"/>
+                                    <ColumnDefinition Width="13"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Name="Icon" 
+                                                Margin="0" 
+                                                VerticalAlignment="Center" 
+                                                ContentSource="Icon"/>
+                                <ContentPresenter Name="HeaderHost" 
+                                                Grid.Column="1" 
+                                                ContentSource="Header" 
+                                                RecognizesAccessKey="True"
+                                                VerticalAlignment="Center"
+                                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                <TextBlock Name="InputGestureText"
+                                         Grid.Column="2"
+                                         Text="{TemplateBinding InputGestureText}"
+                                         Margin="5,2,2,2"
+                                         DockPanel.Dock="Right"
+                                         VerticalAlignment="Center"
+                                         Foreground="{DynamicResource LightGrayTextBrush}"/>
+                                <Path Name="ArrowPath"
+                                    Grid.Column="3"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Data="M 0 0 L 0 7 L 4 3.5 Z"
+                                    Fill="{DynamicResource PrimaryTextBrush}"/>
+                                <Popup Name="Popup"
+                                     Placement="Bottom"
+                                     HorizontalOffset="0"
+                                     VerticalOffset="3"
+                                     IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                     AllowsTransparency="True"
+                                     Focusable="False"
+                                     PopupAnimation="Fade">
+                                    <Border Name="SubmenuBorder"
+                                          SnapsToDevicePixels="True"
+                                          Background="{DynamicResource MenuBackgroundBrush}"
+                                          BorderBrush="{DynamicResource SubMenuBorderBrush}"
+                                          BorderThickness="1">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- TopLevelHeader -->
+                            <Trigger Property="Role" Value="TopLevelHeader">
+                                <Setter TargetName="HeaderHost" Property="Margin" Value="0"/>
+                                <Setter TargetName="Popup" Property="Placement" Value="Bottom"/>
+                                <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="InputGestureText" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="ArrowPath" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <!-- TopLevelItem -->
+                            <Trigger Property="Role" Value="TopLevelItem">
+                                <Setter TargetName="HeaderHost" Property="Margin" Value="0"/>
+                                <Setter TargetName="Popup" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="InputGestureText" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="ArrowPath" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <!-- SubmenuItem -->
+                            <Trigger Property="Role" Value="SubmenuItem">
+                                <Setter TargetName="HeaderHost" Property="Margin" Value="6,3"/>
+                                <Setter TargetName="ArrowPath" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <!-- SubmenuHeader -->
+                            <Trigger Property="Role" Value="SubmenuHeader">
+                                <Setter TargetName="Popup" Property="Placement" Value="Right"/>
+                            </Trigger>
+                            <!-- Hover 효과 -->
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Role" Value="TopLevelHeader"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Role" Value="TopLevelItem"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Role" Value="TopLevelHeader"/>
+                                    <Condition Property="IsHighlighted" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Role" Value="TopLevelItem"/>
+                                    <Condition Property="IsHighlighted" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Role" Value="TopLevelHeader"/>
+                                    <Condition Property="IsSubmenuOpen" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Role" Value="TopLevelItem"/>
+                                    <Condition Property="IsSubmenuOpen" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </MultiTrigger>
+                            <!-- Disabled -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- 상태 로그 컨텍스트 메뉴 전용 스타일 -->
+        <Style x:Key="StatusLogContextMenuStyle" TargetType="{x:Type ContextMenu}">
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SubMenuBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ContextMenu}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                SnapsToDevicePixels="True">
+                            <StackPanel IsItemsHost="True"
+                                        KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="StatusLogContextMenuItemStyle" TargetType="{x:Type MenuItem}">
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SubMenuBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type MenuItem}">
+                        <Border x:Name="Container"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="4"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Container" Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- 스크롤바 스타일 -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="{DynamicResource ScrollBarBackgroundBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="12"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid>
+                                    <Border Background="{TemplateBinding Background}"/>
+                                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb>
+                                                <Thumb.Style>
+                                                    <Style TargetType="{x:Type Thumb}">
+                                                        <Setter Property="Background" Value="{DynamicResource ScrollBarThumbBrush}"/>
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                                                    <Border Background="{TemplateBinding Background}" CornerRadius="6" Margin="2"/>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </Thumb.Style>
+                                            </Thumb>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="12"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid>
+                                    <Border Background="{TemplateBinding Background}"/>
+                                    <Track x:Name="PART_Track">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Command="ScrollBar.PageLeftCommand" Opacity="0" Focusable="False"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb>
+                                                <Thumb.Style>
+                                                    <Style TargetType="{x:Type Thumb}">
+                                                        <Setter Property="Background" Value="{DynamicResource ScrollBarThumbBrush}"/>
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                                                    <Border Background="{TemplateBinding Background}" CornerRadius="6" Margin="2"/>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </Thumb.Style>
+                                            </Thumb>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Command="ScrollBar.PageRightCommand" Opacity="0" Focusable="False"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DatePicker 스타일 -->
+        <Style TargetType="{x:Type DatePicker}">
+            <Setter Property="Background" Value="{DynamicResource TextBoxBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TextBoxBorderBrush}"/>
+        </Style>
+
+        <!-- TextBox 스타일 -->
+        <Style TargetType="{x:Type TextBox}">
+            <Setter Property="Background" Value="{DynamicResource TextBoxBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TextBoxBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TextBox}">
+                        <Border Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}"/>
+                                <Setter TargetName="border" Property="BorderThickness" Value="1"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- TextBlock 기본 스타일 -->
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        </Style>
+
+        <!-- Separator 스타일 -->
+        <Style TargetType="{x:Type Separator}">
+            <Setter Property="Background" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+        </Style>
+
+        <!-- 거래 항목 스타일 -->
+        <Style x:Key="TransactionExpanderStyle" TargetType="Expander">
+            <Setter Property="BorderBrush" Value="{DynamicResource ExpanderBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Background" Value="{DynamicResource ExpanderBackgroundBrush}"/>
+        </Style>
+
+        <!-- 불러온 파일 항목 스타일 -->
+        <Style x:Key="LoadedFileExpanderStyle" TargetType="Expander" BasedOn="{StaticResource TransactionExpanderStyle}">
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+
+        <!-- 불러온 파일 삭제 버튼 스타일 -->
+        <Style x:Key="LoadedFileRemoveButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 상세 내역 항목 스타일 -->
+        <Style x:Key="DetailBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource DetailBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Margin" Value="5,2,2,2"/>
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+
+        <!-- 레이블 스타일 -->
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+
+        <!-- ListView Hover Border 스타일 -->
+        <Style x:Key="ListViewHoverBorderStyle" TargetType="ListView">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListView">
+                        <Border Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer Padding="{TemplateBinding Padding}" Focusable="False">
+                                <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                            </ScrollViewer>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <Menu DockPanel.Dock="Top"
+              HorizontalAlignment="Left"
+              Background="{DynamicResource MenuBackgroundBrush}"
+              BorderBrush="{DynamicResource MenuBorderBrush}">
+            <MenuItem Width="50" Height="25"
+              Background="{DynamicResource MenuBackgroundBrush}" 
+              BorderBrush="{DynamicResource MenuBorderBrush}"
+              HorizontalContentAlignment="Stretch"
+              VerticalContentAlignment="Center"
+              Padding="0">
+                <MenuItem.Style>
+                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </MenuItem.Style>
+                <MenuItem.Header>
+                    <AccessText Text="_File" TextAlignment="Center" Height="22"
+                                               FontSize="16" FontFamily="Noto Sans" Width="50">
+                        <AccessText.Style>
+                            <Style TargetType="AccessText">
+                                <Setter Property="Foreground" Value="{DynamicResource MenuTextBrush}"/>
+                                <Setter Property="FontWeight" Value="Normal"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=MenuItem}}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource MenuHoverTextBrush}"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </AccessText.Style>
+                    </AccessText>
+                </MenuItem.Header>
+                <MenuItem Header="파일 선택..."
+                              Click="SelectFileButton_Click" />
+                <Separator />
+                <MenuItem Header="저장"
+                              Command="{x:Static local:MainWindow.SaveCommand}"
+                              InputGestureText="Ctrl+S" />
+                <MenuItem Header="다른 이름으로 저장..."
+                              Command="{x:Static local:MainWindow.SaveCommand}"
+                              InputGestureText="Ctrl+Shift+S" />
+                <MenuItem Header="불러오기..."
+                              Click="LoadStateButton_Click" />
+            </MenuItem>
+            <MenuItem Width="80" Height="25"
+              Background="{DynamicResource MenuBackgroundBrush}" 
+              BorderBrush="{DynamicResource MenuBorderBrush}"
+              HorizontalContentAlignment="Stretch"
+              VerticalContentAlignment="Center"
+              Padding="0">
+                <MenuItem.Style>
+                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </MenuItem.Style>
+                <MenuItem.Header>
+                    <AccessText Text="_Settings" TextAlignment="Center"
+                        FontSize="16" FontFamily="Noto Sans" Width="80">
+                        <AccessText.Style>
+                            <Style TargetType="AccessText">
+                                <Setter Property="Foreground" Value="{DynamicResource MenuTextBrush}"/>
+                                <Setter Property="FontWeight" Value="Normal"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=MenuItem}}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource MenuHoverTextBrush}"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </AccessText.Style>
+                    </AccessText>
+                </MenuItem.Header>
+                <MenuItem Header="환경설정..."
+                              Click="SettingsMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="예상 지출 및 통계" Click="BudgetMenuItem_Click" />
+        </Menu>
+        <Grid DockPanel.Dock="Top" Margin="12,8,12,0" Height="17">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*"/>
+                <ColumnDefinition Width="2*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0"
+                Orientation="Horizontal"
+                VerticalAlignment="Center">
+                <StackPanel Orientation="Vertical" Width="499">
+                    <TextBlock Text="엑셀(.xlsx) 또는 PDF 파일을 달력 위에 드래그하거나, File 메뉴에서 선택하여 사용해주세요."
+                       FontSize="12"
+                       FontFamily="Malgun Gothic" 
+                       TextAlignment="Center"
+                       Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding StartupYearMonthText, StringFormat='현재 기준: {0}'}"
+                               FontSize="12"
+                               FontFamily="Malgun Gothic"
+                               Margin="0,4,0,0"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                </StackPanel>
+                <ProgressBar Width="120"
+                     Margin="12,0,0,0"
+                     Height="13"
+                     IsIndeterminate="{Binding IsBusy}"
+                     Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                     BorderBrush="White"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Margin="0,0,0,0" Height="24">
+                <TextBlock Text="상태 로그"
+                   FontSize="12"
+                   VerticalAlignment="Center"
+                   FontWeight="Bold"
+                   Margin="0,0,6,0"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+                <ListBox x:Name="StatusLogList"
+                 ItemsSource="{Binding StatusLog}"
+                 Width="425"
+                 Height="24"
+                 Margin="0,0,0,0"
+                 BorderBrush="Transparent"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Visible"
+                 ScrollViewer.CanContentScroll="True" VerticalAlignment="Center">
+                    <ListBox.Style>
+                        <Style TargetType="{x:Type ListBox}">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseCaptureWithin" Value="True">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.Style>
+                    <ListBox.Resources>
+                        <!-- 상태 로그 전용 스크롤바 스타일 -->
+                        <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource {x:Type ScrollBar}}">
+                            <Style.Triggers>
+                                <Trigger Property="Orientation" Value="Vertical">
+                                    <Setter Property="Width" Value="12"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="10"/>
+                                                        <RowDefinition Height="*"/>
+                                                        <RowDefinition Height="10"/>
+                                                    </Grid.RowDefinitions>
+
+                                                    <Grid.Resources>
+                                                        <Style x:Key="StatusLogScrollRepeatButtonStyle" TargetType="{x:Type RepeatButton}">
+                                                            <Setter Property="Focusable" Value="False"/>
+                                                            <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource ScrollBarThumbBrush}"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                                                                        <Border Background="{TemplateBinding Background}"
+                                                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                BorderThickness="0">
+                                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                                              VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource StatusLogScrollButtonHoverBrush}"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Grid.Resources>
+
+                                                    <!-- 위쪽 버튼 -->
+                                                    <RepeatButton x:Name="PART_LineUpButton"
+                                                                  Grid.Row="0"
+                                                                  Height="10"
+                                                                  Command="ScrollBar.LineUpCommand"
+                                                                Style="{StaticResource StatusLogScrollRepeatButtonStyle}">
+                                                        <Path Data="M 0 3 L 4 0 L 8 3"
+                                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RepeatButton}}"
+                                                              StrokeThickness="1.5"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </RepeatButton>
+
+                                                    <!-- 중간 트랙 영역 -->
+                                                    <Border Grid.Row="1" Background="{TemplateBinding Background}"/>
+                                                    <Track Grid.Row="1" x:Name="PART_Track" IsDirectionReversed="True">
+                                                        <Track.DecreaseRepeatButton>
+                                                            <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+                                                        </Track.DecreaseRepeatButton>
+                                                        <Track.Thumb>
+                                                            <Thumb>
+                                                                <Thumb.Style>
+                                                                    <Style TargetType="{x:Type Thumb}">
+                                                                        <Setter Property="Background" Value="Transparent"/>
+                                                                        <Setter Property="Template">
+                                                                            <Setter.Value>
+                                                                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                                                                    <Border Background="Transparent" CornerRadius="6" Margin="2"/>
+                                                                                </ControlTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </Style>
+                                                                </Thumb.Style>
+                                                            </Thumb>
+                                                        </Track.Thumb>
+                                                        <Track.IncreaseRepeatButton>
+                                                            <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+                                                        </Track.IncreaseRepeatButton>
+                                                    </Track>
+
+                                                    <!-- 아래쪽 버튼 -->
+                                                    <RepeatButton x:Name="PART_LineDownButton"
+                                                                  Grid.Row="2"
+                                                                  Height="10"
+                                                                  Command="ScrollBar.LineDownCommand"
+                                                                  Style="{StaticResource StatusLogScrollRepeatButtonStyle}">
+                                                        <Path Data="M 0 0 L 4 3 L 8 0"
+                                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RepeatButton}}"
+                                                              StrokeThickness="1.5"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </RepeatButton>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.Resources>
+                    <!-- 아이템 단위 스크롤 -->
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel
+                                Height="24"
+                                Background="Transparent"
+                                VerticalAlignment="Center"
+                                VirtualizingPanel.VirtualizationMode="Recycling"
+                                VirtualizingPanel.ScrollUnit="Item"/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+
+                    <!-- 아이템(행) 모양 + 우클릭 시 선택 -->
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="{x:Type ListBoxItem}">
+                            <Setter Property="OverridesDefaultStyle" Value="True"/>
+                            <Setter Property="Height" Value="24"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                                        <Border x:Name="ContainerBorder"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="Transparent"
+                                                BorderThickness="1"
+                                                SnapsToDevicePixels="True">
+                                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ContainerBorder" Property="Background" Value="Transparent"/>
+                                                <Setter TargetName="ContainerBorder" Property="BorderBrush" Value="Transparent"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="ContainerBorder" Property="Background" Value="Transparent"/>
+                                                <Setter TargetName="ContainerBorder" Property="BorderBrush" Value="Transparent"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <!-- 우클릭하면 해당 아이템을 선택 -->
+                            <EventSetter Event="UIElement.PreviewMouseRightButtonDown"
+                                         Handler="ListBoxItem_RightClickSelect"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+
+                    <!-- 한 줄 + 말줄임표 표시 -->
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding .}"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,0,0" Padding="0,0,0,0"
+                                       Height="18"
+                                       VerticalAlignment="Center"
+                                       Background="Transparent"
+                                       Foreground="{DynamicResource StatusLogTextBrush}">
+                                <TextBlock.ToolTip>
+                                    <ToolTip Content="{Binding .}"/>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="16,0,16,16" Height="720">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="490" />
+                <RowDefinition Height="0" />
+                <RowDefinition Height="200"/>
+                <RowDefinition Height="0" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Column="0"
+                Grid.Row="0"
+                Margin="0,5,12,10"
+                Padding="10"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Background="{DynamicResource PanelBackgroundBrush}">
+                <calendar:CustomCalendarControl x:Name="AccountCalendar" Margin="-3,-3,-3,-3" />
+            </Border>
+
+            <Border Grid.Column="1"
+                Grid.Row="0"
+                Padding="12"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="6" 
+                Margin="0,5,0,11"
+                Background="{DynamicResource PanelBackgroundBrush}" RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform/>
+                        <SkewTransform AngleX="-0.243"/>
+                        <RotateTransform/>
+                        <TranslateTransform X="-0.996"/>
+                    </TransformGroup>
+                </Border.RenderTransform>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" MinHeight="43.9" />
+                        <RowDefinition Height="Auto" MinHeight="84.6" />
+                        <RowDefinition Height="Auto" MinHeight="55.96" />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Vertical" Margin="0,0,0,84" Grid.RowSpan="2">
+                        <TextBlock Text="월별 합계" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="{Binding CurrentMonth, StringFormat='{}{0:yyyy년 MM월}'}" Margin="0 2 0 0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    </StackPanel>
+                    <UniformGrid Grid.Row="1" Columns="2" Margin="0,8,0,0" Rows="2" >
+                        <StackPanel>
+                            <TextBlock Text="총 수입" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Foreground="{DynamicResource IncomeTextBrush}" FontSize="16" Height="22" Margin="0,1,0,0"
+                                       Text="{Binding MonthlyIncome, Converter={StaticResource CurrencyConverter}}" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="총 지출" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock Foreground="{DynamicResource ExpenseTextBrush}" FontSize="16" Height="22" Margin="0,1,0,0"
+                                       Text="{Binding MonthlyExpense, Converter={StaticResource CurrencyConverter}}" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="이번 달 순이익" FontWeight="Bold" FontSize="12" Margin="0,3,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock FontSize="16" Height="18" Margin="0,1,0,0"
+                                       Text="{Binding MonthlyNet, Converter={StaticResource CurrencyConverter}}" 
+                                       Foreground="{Binding MonthlyNet, Converter={StaticResource AmountToColorConverter}}"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="현재 자산" FontWeight="Bold" FontSize="12" Margin="0,3,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            <TextBlock FontSize="16" Height="18" Margin="0,1,0,0"
+                                       Text="{Binding AssetBalance, Converter={StaticResource CurrencyConverter}}" 
+                                       Foreground="{Binding AssetBalance, Converter={StaticResource AmountToColorConverter}}"/>
+                        </StackPanel>
+                    </UniformGrid>
+                    <Grid Grid.Row="2" Margin="0,8,0,8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="선택한 날짜의 거래 내역"
+                                   FontSize="14"
+                                   Height="20"
+                                   Margin="0,14,0,0"
+                                   VerticalAlignment="Center" 
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <Button Grid.Row="0"
+                                Grid.Column="1"
+                                Width="24"
+                                Height="24"
+                                BorderBrush="Transparent"
+                                Background="Transparent"
+                                Margin="8,0,0,0"
+                                Click="AddManualTransaction_Click"
+                                ToolTip="선택한 날짜에 새 거래를 추가합니다.">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="WhiteSmoke" />
+                                    <Setter Property="BorderBrush" Value="LightGray" />
+                                    <Setter Property="BorderThickness" Value="1" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                    <Setter Property="IsEnabled" Value="True" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedDate}" Value="{x:Null}">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                            <Setter Property="Opacity" Value="0.5" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <TextBlock Text="+"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource GrayTextBrush}">
+                                <TextBlock.RenderTransform>
+                                    <TranslateTransform Y="-2" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+                        </Button>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding SelectedDate, StringFormat='{}{0:yyyy-MM-dd}'}" 
+                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    </Grid>
+
+                    <!-- 거래 목록 (상세내역 기능 포함) -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Visible" Margin="0,64,0,0" Grid.RowSpan="2" >
+                        <Grid>
+                            <TextBlock Text="선택한 날짜의 거래가 없습니다."
+                    Foreground="{DynamicResource GrayTextBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDateTransactionsWithMemo.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ItemsControl ItemsSource="{Binding SelectedDateTransactionsWithMemo}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Expander Style="{StaticResource TransactionExpanderStyle}"
+											  IsExpanded="{Binding IsExpanded}">
+                                            <Expander.Header>
+                                                <!-- 거래 요약 정보 -->
+                                                <Border>
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding HasDetailAmountMismatch}" Value="True"/>
+                                                                        <Condition Binding="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=Expander}}" Value="False"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}"/>
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="40"/>
+                                                            <ColumnDefinition Width="30"/>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="100"/>
+                                                            <ColumnDefinition Width="140"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0" 
+                                                        Text="{Binding TransactionTime, StringFormat='{}{0:HH:mm}'}"
+                                                        VerticalAlignment="Center"
+															   Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                                                        <TextBlock Grid.Column="1" 
+                                                        Text="{Binding TransactionType}"
+                                                        Foreground="{Binding TransactionType, Converter={StaticResource TransactionTypeToBrushConverter}}"
+                                                        VerticalAlignment="Center"
+															   HorizontalAlignment="Center"/>
+
+                                                        <TextBlock Grid.Column="2" 
+                                                        Text="{Binding Amount, StringFormat='{}{0:#,0}'}"
+                                                        Foreground="{Binding TransactionType, Converter={StaticResource TransactionTypeToBrushConverter}}"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Center"
+															   Margin="0,0,5,0"/>
+
+                                                        <TextBlock Grid.Column="3" 
+                                                        Text="{Binding Category}"
+                                                        VerticalAlignment="Center"
+                                                        TextTrimming="CharacterEllipsis"
+															   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                        Margin="5,0"/>
+
+                                                        <TextBlock Grid.Column="4"
+                                                        Text="{Binding Description}"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Stretch"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               Margin="5,0"/>
+
+                                                        <Button Grid.Column="5"
+                                                            Width="24"
+                                                            Height="24"
+                                                            Margin="8,0,0,0"
+                                                            Padding="0"
+                                                            Tag="{Binding}"
+                                                            Click="ToggleExcludeTransaction_Click"
+                                                            Background="Transparent"
+                                                            BorderBrush="Transparent"
+                                                            HorizontalAlignment="Right"
+                                                            ToolTip="합계에서 제외/포함">
+                                                            <Viewbox Width="16" Height="16">
+                                                                <Canvas Width="24" Height="24">
+                                                                    <!-- 원 -->
+                                                                    <Ellipse Width="20" Height="20" Canvas.Left="2" Canvas.Top="2"
+                                                                             StrokeThickness="2.5">
+                                                                        <Ellipse.Style>
+                                                                            <Style TargetType="Ellipse">
+                                                                                <Setter Property="Stroke" Value="{DynamicResource GrayTextBrush}"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsExcludedFromTotal}" Value="True">
+                                                                                        <Setter Property="Stroke" Value="#E53935"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Ellipse.Style>
+                                                                    </Ellipse>
+                                                                    <!-- 사선 -->
+                                                                    <Line X1="6" Y1="6" X2="18" Y2="18" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                                                                        <Line.Style>
+                                                                            <Style TargetType="Line">
+                                                                                <Setter Property="Stroke" Value="{DynamicResource GrayTextBrush}"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsExcludedFromTotal}" Value="True">
+                                                                                        <Setter Property="Stroke" Value="#E53935"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Line.Style>
+                                                                    </Line>
+                                                                </Canvas>
+                                                            </Viewbox>
+                                                        </Button>
+
+                                                        <Button Grid.Column="6"
+                                                            Width="24"
+                                                            Height="24"
+                                                            Margin="0"
+                                                            Padding="0,0,0 4"
+                                                            Tag="{Binding}"
+                                                            Click="DeleteTransaction_Click"
+                                                            Background="Transparent"
+                                                            BorderBrush="Transparent"
+                                                            HorizontalAlignment="Right"
+                                                            ToolTip="해당 거래를 삭제합니다.">
+                                                            <TextBlock Text="×"
+                                                                   FontSize="22"
+                                                                   Foreground="{DynamicResource ErrorTextBrush}"
+                                                                   FontWeight="Bold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </Expander.Header>
+
+                                            <!-- 상세 내역 패널 -->
+                                            <Border Background="{DynamicResource ExpanderContentBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="10">
+                                                <StackPanel>
+                                                    <!-- 거래 금액 수정 -->
+                                                    <Border Style="{StaticResource DetailBorderStyle}" Margin="5,0,2,10" Background="{DynamicResource DetailBackgroundBrush}">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+
+                                                            <TextBlock Grid.Row="0"
+                                                                       Grid.Column="0"
+                                                                       FontSize="12"
+                                                                       Text="날짜"
+                                                                       Style="{StaticResource FieldLabelStyle}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       Margin="0,0,6,0"/>
+                                                            <DatePicker Grid.Row="0"
+                                                                        Grid.Column="1"
+                                                                        SelectedDate="{Binding TransactionDate, Mode=TwoWay}"
+                                                                        SelectedDateFormat="Short"
+                                                                        Margin="0,0,39,0"
+                                                                        HorizontalAlignment="Left"
+                                                                        MinWidth="120"
+                                                                        VerticalContentAlignment="Center"
+                                                                        Padding="4,2"
+                                                                        Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                        Foreground="{DynamicResource TextBrushBlack}"
+                                                                        BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                        ToolTip="거래 날짜를 선택하세요."/>
+
+                                                            <TextBlock Grid.Row="0"
+                                                                       Grid.Column="3"
+                                                                       FontSize="12"
+                                                                       Text="시간"
+                                                                       Style="{StaticResource FieldLabelStyle}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       Margin="0,0,0,0"/>
+                                                            <TextBox Grid.Row="0"
+                                                                     Grid.Column="4"
+                                                                     Text="{Binding TransactionTimeText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                                     Padding="6,3"
+                                                                     Margin="0,0,38,0"
+                                                                     BorderThickness="1"
+                                                                     BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                     Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                     Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                     HorizontalAlignment="Stretch"
+                                                                     MinWidth="80"
+                                                                     TextAlignment="Left"
+                                                                     ToolTip="거래 시간을 HH:mm 형식으로 입력하세요."/>
+
+                                                            <TextBlock Grid.Row="1"
+                                                                       Grid.Column="0"
+                                                                       FontSize="12"
+                                                                       Text="거래구분"
+                                                                       Style="{StaticResource FieldLabelStyle}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       Margin="0,0,6,0"/>
+                                                            <TextBox Grid.Row="1"
+                                                                     Grid.Column="1"
+                                                                     Text="{Binding Category, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Padding="6,3"
+                                                                     BorderThickness="1"
+                                                                     TextAlignment="Center"
+                                                                     BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                     Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                     Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                     Margin="0,2,39,0"
+                                                                     ToolTip="거래 구분을 입력하세요."/>
+
+                                                            <TextBlock Grid.Row="1"
+                                                                       Grid.Column="3"
+                                                                       FontSize="12"
+                                                                       Text="내용"
+                                                                       Style="{StaticResource FieldLabelStyle}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       Margin="0,0,6,0"/>
+                                                            <TextBox Grid.Row="1"
+                                                                     Grid.Column="4"
+                                                                     Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Padding="6,3"
+                                                                     Margin="0,2,38,0"
+                                                                     BorderThickness="1"
+                                                                     BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                     Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                     Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                     ToolTip="거래 내용을 입력하세요."/>
+
+                                                            <TextBlock Grid.Row="2"
+                                                                       Grid.Column="0"
+                                                                       FontSize="12"
+                                                                       Text="출금"
+                                                                       Style="{StaticResource FieldLabelStyle}"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       Margin="0,0,6,3"
+                                                                       VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Row="2"
+                                                                        Grid.Column="1"
+                                                                        Orientation="Horizontal"
+                                                                        Margin="0,2,0,3">
+                                                                <TextBox MinWidth="120"
+                                                                         Text="{Binding ExpenseAmount, Converter={StaticResource DecimalStringConverter}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         HorizontalAlignment="Stretch"
+                                                                         TextAlignment="Right"
+                                                                         Padding="6,3"
+                                                                         BorderThickness="1"
+                                                                         BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                         Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                         Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                         PreviewTextInput="AmountTextBox_PreviewTextInput"
+                                                                         PreviewKeyDown="AmountTextBox_PreviewKeyDown"
+                                                                         DataObject.Pasting="AmountTextBox_Pasting"
+                                                                         ToolTip="출금 금액을 입력하면 자동으로 출금으로 처리됩니다."/>
+                                                                <TextBlock Text="원"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="6,0,0,0"
+                                                                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                                            </StackPanel>
+
+                                                            <TextBlock Grid.Row="2"
+                                                                       Grid.Column="3"
+                                                                       FontSize="12"
+                                                                       Text="입금"
+                                                                       Style="{StaticResource FieldLabelStyle}"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       Margin="0,0,6,3"
+                                                                       VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Row="2"
+                                                                        Grid.Column="4"
+                                                                        Orientation="Horizontal"
+                                                                        Margin="0,2,0,3">
+                                                                <TextBox MinWidth="120"
+                                                                         Text="{Binding IncomeAmount, Converter={StaticResource DecimalStringConverter}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         HorizontalAlignment="Stretch"
+                                                                         TextAlignment="Right"
+                                                                         Padding="6,3"
+                                                                         BorderThickness="1"
+                                                                         BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                         Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                         Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                         PreviewTextInput="AmountTextBox_PreviewTextInput"
+                                                                         PreviewKeyDown="AmountTextBox_PreviewKeyDown"
+                                                                         DataObject.Pasting="AmountTextBox_Pasting"
+                                                                         ToolTip="입금 금액을 입력하면 자동으로 입금으로 처리됩니다."/>
+                                                                <TextBlock Text="원"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="6,0,0,0"
+                                                                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!-- 상세 내역 헤더 -->
+                                                    <Grid Margin="0,0,0,5">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="상세 내역" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                                        <StackPanel Grid.Column="1"
+                                                                    Orientation="Horizontal"
+                                                                    HorizontalAlignment="Right">
+                                                            <Button Background="Transparent"
+                                                                    BorderBrush="Transparent"
+                                                                    Padding="0"
+                                                                    FontWeight="Bold"
+                                                                    Click="AddMemoDetail_Click"
+                                                                    Tag="{Binding ., Mode=OneWay}"
+                                                                    Width="24"
+                                                                    Height="24"
+                                                                    Margin="0,0,4,0"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ToolTip="새로운 상세 항목 추가">
+                                                                <TextBlock Text="+"
+                                                                           FontSize="16"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="{DynamicResource GrayTextBrush}">
+                                                                    <TextBlock.RenderTransform>
+                                                                        <TranslateTransform Y="-3"/>
+                                                                    </TextBlock.RenderTransform>
+                                                                </TextBlock>
+                                                            </Button>
+                                                            <Button Background="Transparent"
+                                                                    BorderBrush="Transparent"
+                                                                    Padding="0"
+                                                                    FontWeight="Bold"
+                                                                    Click="PasteMemoDetail_Click"
+                                                                    Tag="{Binding ., Mode=OneWay}"
+                                                                    Width="24"
+                                                                    Height="24"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ToolTip="클립보드의 상세 항목 붙여넣기">
+                                                                <TextBlock Text="📋"
+                                                                           FontSize="14"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="{DynamicResource GrayTextBrush}">
+                                                                    <TextBlock.RenderTransform>
+                                                                        <TranslateTransform Y="-3"/>
+                                                                    </TextBlock.RenderTransform>
+                                                                </TextBlock>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+
+                                                    <!-- 필드 레이블 헤더 (첫 번째 항목이 있을 때만 표시) -->
+                                                    <Grid Margin="5,5,2,0" Visibility="{Binding Memo.Details.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="2*"/>
+                                                            <ColumnDefinition Width="100"/>
+                                                            <ColumnDefinition Width="3*"/>
+                                                            <ColumnDefinition Width="30"/>
+                                                            <ColumnDefinition Width="30"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0" Text="항목명" Style="{StaticResource FieldLabelStyle}" Margin="5,0,0,2" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                                        <TextBlock Grid.Column="1" Text="금액" Style="{StaticResource FieldLabelStyle}" Margin="0,0,5,2" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                                        <TextBlock Grid.Column="2" Text="메모" Style="{StaticResource FieldLabelStyle}" Margin="5,0,0,2" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                                    </Grid>
+
+                                                    <!-- 상세 내역 리스트 -->
+                                                    <ItemsControl ItemsSource="{Binding Memo.Details}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Style="{StaticResource DetailBorderStyle}">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="2*"/>
+                                                                            <ColumnDefinition Width="100"/>
+                                                                            <ColumnDefinition Width="3*"/>
+                                                                            <ColumnDefinition Width="30"/>
+                                                                            <ColumnDefinition Width="30"/>
+                                                                        </Grid.ColumnDefinitions>
+
+                                                                        <TextBox Grid.Column="0" 
+                                                                        Text="{Binding ItemName, UpdateSourceTrigger=PropertyChanged}"
+                                                                        VerticalAlignment="Center"
+                                                                        BorderThickness="1"
+                                                                        BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                        Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                        Padding="3"
+                                                                        Margin="0,0,5,0"/>
+
+                                                                        <TextBox Grid.Column="1"
+                                                                        Text="{Binding Amount, Converter={StaticResource DecimalStringConverter}, UpdateSourceTrigger=PropertyChanged}"
+                                                                        HorizontalAlignment="Stretch"
+                                                                        TextAlignment="Right"
+                                                                        VerticalAlignment="Center"
+                                                                        BorderThickness="1"
+                                                                        BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                        Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                        Padding="3"
+                                                                        Margin="0,0,5,0"
+                                                                        PreviewTextInput="AmountTextBox_PreviewTextInput"
+                                                                        PreviewKeyDown="AmountTextBox_PreviewKeyDown"
+                                                                        DataObject.Pasting="AmountTextBox_Pasting"/>
+
+                                                                        <TextBox Grid.Column="2" 
+                                                                        Text="{Binding Note, UpdateSourceTrigger=PropertyChanged}"
+                                                                        VerticalAlignment="Center"
+                                                                        BorderThickness="1"
+                                                                        BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                                                        Background="{DynamicResource TextBoxBackgroundBrush}"
+                                                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                        Padding="3"
+                                                                        Margin="0,0,5,0"/>
+
+                                                                        <Button Grid.Column="3"
+                                                                                Click="CopyMemoDetail_Click"
+                                                                                Tag="{Binding ., Mode=OneWay}"
+                                                                                HorizontalContentAlignment="Center"
+                                                                                VerticalContentAlignment="Center"
+                                                                                Padding="0"
+                                                                                Background="Transparent"
+                                                                                BorderBrush="Transparent"
+                                                                                BorderThickness="1"
+                                                                                Width="24"
+                                                                                Height="24"
+                                                                                ToolTip="이 상세 항목 복사">
+                                                                            <TextBlock Text="⧉"
+                                                                                       FontSize="14"
+                                                                                       FontWeight="Bold"
+                                                                                       Foreground="{DynamicResource SecondaryTextBrush}">
+                                                                                <TextBlock.RenderTransform>
+                                                                                    <TranslateTransform Y="-2"/>
+                                                                                </TextBlock.RenderTransform>
+                                                                            </TextBlock>
+                                                                        </Button>
+
+                                                                        <Button Grid.Column ="4"
+                                                                                Click="RemoveMemoDetail_Click"
+                                                                                Tag="{Binding ., Mode=OneWay}"
+                                                                                HorizontalContentAlignment="Center"
+                                                                                VerticalContentAlignment="Center"
+                                                                                Padding="0"
+																			    Background="Transparent"
+																			    BorderBrush="Transparent"
+																			    BorderThickness="1"
+																		 	    Width="24"
+																			    Height="24">
+                                                                            <TextBlock Text="×"
+                                                                                   FontSize="16"
+                                                                                   FontWeight="Bold"
+                                                                                   Foreground="{DynamicResource ErrorTextBrush}">
+                                                                                <TextBlock.RenderTransform>
+                                                                                    <TranslateTransform Y="-2"/>
+                                                                                </TextBlock.RenderTransform>
+                                                                            </TextBlock>
+                                                                        </Button>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <!-- 상세 항목이 없을 때 안내 메시지 -->
+                                                    <Border Padding="10" Margin="5,5,2,0" Background="{DynamicResource DetailBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                                        <TextBlock Text="상세 내역을 추가하려면 '+' 버튼을 클릭하세요."
+                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontSize="11"
+															   HorizontalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Memo.Details.Count}" Value="0">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+
+                                                    <!-- 상세 항목 합계 -->
+                                                    <Border Background="{DynamicResource SuccessBackgroundBrush}"
+                                                        BorderBrush="{DynamicResource SuccessBorderBrush}"
+                                                        BorderThickness="1"
+                                                        Padding="8"
+                                                        Margin="0,8,0,0">
+                                                        <Border.Visibility>
+                                                            <MultiBinding Converter="{StaticResource AmountDifferenceVisibilityConverter}">
+                                                                <Binding Path="Amount"/>
+                                                                <Binding Path="Memo.TotalDetailAmount"/>
+                                                                <Binding Path="Memo.Details.Count"/>
+                                                            </MultiBinding>
+                                                        </Border.Visibility>
+                                                        <Grid>
+                                                            <TextBlock Text="거래 금액과 상세 내역 합계의 차이:" FontWeight="Bold" HorizontalAlignment="Left"/>
+                                                            <TextBlock FontWeight="Bold"
+                                                                   FontSize="14"
+                                                                   HorizontalAlignment="Right"
+                                                                   Foreground="{Binding TransactionType, Converter={StaticResource TransactionTypeToBrushConverter}}">
+                                                                <TextBlock.Text>
+                                                                    <MultiBinding Converter="{StaticResource AmountDifferenceValueConverter}" StringFormat="{}{0:#,0}원">
+                                                                        <Binding Path="Amount"/>
+                                                                        <Binding Path="Memo.TotalDetailAmount"/>
+                                                                    </MultiBinding>
+                                                                </TextBlock.Text>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border
+        Grid.ColumnSpan="2"
+        Grid.Row="2"
+        Padding="7,7,12,0"
+        BorderBrush="{DynamicResource BorderBrush}"
+        BorderThickness="1"
+	    CornerRadius="6" 
+        Margin="0,0,0,-5"
+        Background="{DynamicResource PanelBackgroundBrush}">
+                <StackPanel Margin="0,0,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="17*" />
+                            <ColumnDefinition Width="9*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Grid.ColumnSpan="2">
+                            <StackPanel.Resources>
+                                <Style x:Key="PanelHeaderButtonStyle" TargetType="Button">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                                    <Setter Property="FontSize" Value="14" />
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                    <Setter Property="Margin" Value="0,0,8,0" />
+                                    <Setter Property="Padding" Value="6,2" />
+                                    <Setter Property="Cursor" Value="Hand" />
+                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="Focusable" Value="False" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Name="border"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="Transparent"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsLoadedFilesMode}" Value="True" />
+                                                <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Files" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsDetailSearchMode}" Value="True" />
+                                                <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Details" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                        </MultiDataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Resources>
+                            <Button Content="불러온 파일"
+                                    Tag="Files"
+                                    Click="ToggleRightPanel_Click"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    Style="{StaticResource PanelHeaderButtonStyle}" />
+                            <Button Content="상세 내역 검색"
+                                    Tag="Details"
+                                    Click="ToggleRightPanel_Click"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    Style="{StaticResource PanelHeaderButtonStyle}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2"
+                        Text="{Binding LoadedFileCount, StringFormat='총 {0}개 파일'}"
+                        FontSize="12"
+                        Foreground="{DynamicResource SecondaryTextBrush}"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding IsLoadedFilesMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Grid.Column="2"
+                        Text="{Binding DetailSearchResultCount, StringFormat='검색 결과 {0}건'}"
+                        FontSize="12"
+                        Foreground="{DynamicResource SecondaryTextBrush}"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding IsDetailSearchMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" VerticalAlignment="Center"
+                                Visibility="{Binding IsLoadedFilesMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBox Width="260"
+                             Height="20"
+                             Padding="6,2"
+                             Text="{Binding LoadedFileSearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="파일명 또는 경로로 검색" 
+                             BorderBrush="Gray"
+                             BorderThickness="1"
+                             Background="{DynamicResource TextBoxBackgroundBrush}"
+                             Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="파일명 또는 경로로 검색합니다."
+                               Margin="8,2,0,0"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontSize="12"
+                               VerticalAlignment="Center" Height="19" />
+                    </StackPanel>
+
+                    <Grid Margin="0,2,0,0"
+                          Height="145"
+                          Visibility="{Binding IsLoadedFilesMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ListView x:Name="LoadedFileList"
+                              ItemsSource="{Binding LoadedFilesView}"
+                              ScrollViewer.VerticalScrollBarVisibility="Visible"
+                              ScrollViewer.CanContentScroll="True"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              UseLayoutRounding="True"
+                              SnapsToDevicePixels="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              BorderThickness="1"
+                              Margin="0,-10,0,0"
+                              Height="135"
+                              BorderBrush="Gray"
+                              Background="{DynamicResource ListBackgroundBrush}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              Loaded="LoadedFileList_Loaded"
+                              SizeChanged="LoadedFileList_SizeChanged"
+                              SelectionChanged="LoadedFileList_SelectionChanged" 
+                              Foreground="{DynamicResource PrimaryTextBrush}">
+                            <ListView.Style>
+                                <Style TargetType="ListView">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListView">
+                                                <Border Name="Bd"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        SnapsToDevicePixels="True">
+                                                    <ScrollViewer Padding="{TemplateBinding Padding}" Focusable="False">
+                                                        <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                                    </ScrollViewer>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}"/>
+                                                        <Setter TargetName="Bd" Property="BorderThickness" Value="1"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListView.Style>
+                            <ListView.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E0E0E0"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="Transparent"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="Transparent"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="Transparent"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightLightBrushKey}" Color="Transparent"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="Transparent"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkDarkBrushKey}" Color="Transparent"/>
+
+                                <Style x:Key="GridViewColumnHeaderBaseStyle" TargetType="GridViewColumnHeader" BasedOn="{StaticResource {x:Type GridViewColumnHeader}}">
+                                    <EventSetter Event="Loaded" Handler="GridViewColumnHeader_Loaded" />
+                                </Style>
+                                <Style TargetType="GridViewColumnHeader">
+                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                </Style>
+                                <Style x:Key="CenterGridViewColumnHeaderStyle"
+                                       TargetType="GridViewColumnHeader"
+                                       BasedOn="{StaticResource GridViewColumnHeaderBaseStyle}">
+                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                </Style>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListViewItem">
+                                                <Border Name="Border"
+                                                Padding="2"
+                                                SnapsToDevicePixels="true"
+                                                Background="Transparent"
+                                                        BorderThickness="0">
+                                                    <GridViewRowPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListItemSelectedBrush}"/>
+                                                        <Setter TargetName="Border" Property="BorderBrush" Value="White"/>
+                                                        <Setter TargetName="Border" Property="BorderThickness" Value="1"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListView.Resources>
+                            <ListView.View>
+                                <GridView AllowsColumnReorder="False">
+                                    <GridViewColumn x:Name="FileNameColumn" Header="파일명">
+                                        <GridViewColumn.HeaderContainerStyle>
+                                            <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource GridViewColumnHeaderBaseStyle}">
+                                                <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </GridViewColumn.HeaderContainerStyle>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding FileName}"
+                                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding FileName}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="TransactionCountColumn"
+                                                    Header="거래 수">
+                                        <GridViewColumn.HeaderContainerStyle>
+                                            <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource CenterGridViewColumnHeaderStyle}">
+                                                <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </GridViewColumn.HeaderContainerStyle>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid HorizontalAlignment="Stretch">
+                                                    <TextBlock Text="{Binding TransactionCount, StringFormat='{}{0}건'}"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Center" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="LoadedAtColumn"
+                                                    Header="불러온 시각">
+                                        <GridViewColumn.HeaderContainerStyle>
+                                            <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource CenterGridViewColumnHeaderStyle}">
+                                                <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </GridViewColumn.HeaderContainerStyle>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid HorizontalAlignment="Stretch">
+                                                    <TextBlock Text="{Binding LoadedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               TextAlignment="Center" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="FilePathColumn" Header="경로">
+                                        <GridViewColumn.HeaderContainerStyle>
+                                            <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource GridViewColumnHeaderBaseStyle}">
+                                                <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </GridViewColumn.HeaderContainerStyle>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding FilePath}"
+                                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding FilePath}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="RemoveColumn" Header="삭제">
+                                        <GridViewColumn.HeaderContainerStyle>
+                                            <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource GridViewColumnHeaderBaseStyle}">
+                                                <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </GridViewColumn.HeaderContainerStyle>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button
+                                                Style="{StaticResource LoadedFileRemoveButtonStyle}"
+                                                Padding="0,0,0,2"
+                                                Margin="0"
+                                                Width="24"
+                                                Height="24"
+                                                Tag="{Binding FilePath}"
+                                                Click="RemoveFileButton_Click">
+                                                    <TextBlock Text="×" 
+                                                       FontSize="22"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource ErrorTextBrush}">
+                                                        <TextBlock.RenderTransform>
+                                                            <TranslateTransform Y="-2"/>
+                                                        </TextBlock.RenderTransform>
+                                                    </TextBlock>
+                                                </Button>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                        <TextBlock Text="불러온 파일이 없습니다."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Panel.ZIndex="1"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" 
+                                   Margin="0,20,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasLoadedFiles}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="검색 결과가 없습니다."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Panel.ZIndex="1"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontStyle="Italic" Margin="0,20,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding HasLoadedFiles}" Value="True" />
+                                                <Condition Binding="{Binding ElementName=LoadedFileList, Path=HasItems}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <StackPanel Visibility="{Binding IsDetailSearchMode, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBox Width="260"
+                                     Height="20"
+                                     Padding="6,2"
+                                     Margin="0,0,0,0"
+                                     Text="{Binding DetailSearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                     TextChanged="DetailSearchQuery_TextChanged"
+                                     KeyDown="DetailSearchQuery_KeyDown"
+                                     ToolTip="상세 항목 또는 메모 내용으로 검색"
+                                     BorderBrush="{DynamicResource TextBoxBorderBrush}"
+                                     Background="{DynamicResource TextBoxBackgroundBrush}"
+                                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Text="상세 항목, 메모, 거래 내역, 파일명을 대상으로 검색합니다."
+                                   Margin="8,2,0,0"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontSize="12" />
+                        </StackPanel>
+                        <Grid Margin="0,12,0,0"
+                              Height="135">
+                            <TextBlock Text="검색 결과가 없습니다."
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Panel.ZIndex="1"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DetailSearchResultCount}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding DetailSearchQuery}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ListView x:Name="DetailSearchResultsList"
+                                      ItemsSource="{Binding DetailSearchResults}"
+                                      ScrollViewer.VerticalScrollBarVisibility="Visible"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      ScrollViewer.CanContentScroll="True"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      BorderThickness="1"
+                                      Height="135" 
+                                      BorderBrush="{DynamicResource ListBorderBrush}"
+                                      Background="{DynamicResource ListBackgroundBrush}"
+                                      Foreground="{DynamicResource PrimaryTextBrush}"
+                                      MouseDoubleClick="DetailSearchResultsList_MouseDoubleClick" 
+                                      VerticalAlignment="Top" 
+                                      Margin="0,-9,0,0"
+                                      Style="{StaticResource ListViewHoverBorderStyle}">
+                                <ListView.Resources>
+                                    <Style x:Key="DetailSearchGridViewColumnHeaderBaseStyle" TargetType="GridViewColumnHeader" BasedOn="{StaticResource {x:Type GridViewColumnHeader}}">
+                                        <EventSetter Event="Loaded" Handler="GridViewColumnHeader_Loaded" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    </Style>
+                                    <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}" />
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="2" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListViewItem">
+                                                    <Border x:Name="Border"
+                                                            Padding="{TemplateBinding Padding}"
+                                                            Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            SnapsToDevicePixels="True">
+                                                        <GridViewRowPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListItemHoverBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListItemSelectedBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListView.Resources>
+                                <ListView.View>
+                                    <GridView AllowsColumnReorder="False">
+                                        <GridViewColumn x:Name="DetailSearchDateColumn" Header="날짜" Width="120">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding TransactionTime, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               HorizontalAlignment="Center" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchTypeColumn" Header="구분" Width="50">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding TransactionType}"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                            HorizontalAlignment="Center" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchTransactionAmountColumn" Header="거래 금액" Width="80">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding TransactionAmount, Converter={StaticResource CurrencyConverter}}"
+                                                               HorizontalAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchDescriptionColumn" Header="거래 내역" Width="160">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               ToolTip="{Binding Description}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchCategoryColumn" Header="거래 구분" Width="110">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Category}"
+                                                               HorizontalAlignment="Center"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchItemNameColumn" Header="상세 항목" Width="160">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding ItemName}"
+                                                               ToolTip="{Binding ItemName}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchDetailAmountColumn" Header="상세 금액" Width="80">
+                                            <GridViewColumn.HeaderContainerStyle>
+                                                <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource DetailSearchGridViewColumnHeaderBaseStyle}">
+                                                    <Setter Property="Background" Value="{DynamicResource GridViewColumnHeaderBackgroundBrush}"/>
+                                                </Style>
+                                            </GridViewColumn.HeaderContainerStyle>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding DetailAmount, Converter={StaticResource CurrencyConverter}}"
+                                                               HorizontalAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchNoteColumn" Header="메모" Width="245">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Note}"
+                                                               ToolTip="{Binding Note}"
+                                                               TextTrimming="CharacterEllipsis" 
+                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="DetailSearchFileColumn" Header="파일" Width="180">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding SourceFileName}"
+                                                               ToolTip="{Binding SourceFilePath}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

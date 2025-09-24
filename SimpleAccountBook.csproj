@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+	<ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+  </PropertyGroup>
+	
+  <ItemGroup>
+    <Compile Remove="Controls\CustomCalendarControl.xaml.cs" />
+    <Compile Remove="Tests\**\*.cs" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Page Remove="Controls\CustomCalendarControl.xaml" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.104.0" />
+    <PackageReference Include="ExcelDataReader" Version="3.6.0" />
+    <PackageReference Include="ExcelDataReader.DataSet" Version="3.6.0" />
+	<PackageReference Include="PdfPig" Version="0.1.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+	  <Resource Include="Assets\AppIcon.png" />
+  </ItemGroup>
+
+	<ItemGroup>
+		<None Update="Assets\AppIcon.ico">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+	
+  <ItemGroup>
+	  <Page Update="PasswordPromptWindow.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		  <SubType>Designer</SubType>
+	  </Page>
+	  <Compile Update="PasswordPromptWindow.xaml.cs">
+		  <DependentUpon>PasswordPromptWindow.xaml</DependentUpon>
+	  </Compile>
+  </ItemGroup>
+</Project>

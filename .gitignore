@@ -1,0 +1,48 @@
+# --- 빌드/아티팩트 ---
+build/
+out/
+bin/
+obj/
+x64/
+Debug/
+Release/
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.log
+
+# --- IDE/툴 캐시 ---
+.vs/
+*.user
+*.suo
+
+# --- CMake ---
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# --- vcpkg ---
+vcpkg_installed/
+.vcpkg-root
+
+# --- 환경/비밀 ---
+.env
+.env.*    # .env.local, .env.dev 등
+*.key
+*.pem
+*.p12
+secrets.json
+**/private/**
+
+# --- OS 잡파일 ---
+.DS_Store
+Thumbs.db
+
+# --- 앱 데이터(로컬 테스트용) ---
+data/local/*
+!data/local/.gitkeep   # 폴더만 남기고 내용은 무시하고 싶을 때
